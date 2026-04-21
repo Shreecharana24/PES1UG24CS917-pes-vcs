@@ -60,10 +60,10 @@ int commit_parse(const void *data, size_t len, Commit *commit_out) {
     // "author <name> <timestamp>\n"
     char author_buf[256];
     uint64_t ts;
-    if (sscanf(p, "author %255[^\n]\n", author_buf) != 1) return -1;
+    if (sscanf(p, "author %255[^\n]\n", author_buf) != 1) goto cleanup;
     // split off trailing timestamp
     char *last_space = strrchr(author_buf, ' ');
-    if (!last_space) return -1;
+    if (!last_space) goto cleanup;
     ts = (uint64_t)strtoull(last_space + 1, NULL, 10);
     *last_space = '\0';
     snprintf(commit_out->author, sizeof(commit_out->author), "%s", author_buf);
@@ -73,7 +73,11 @@ int commit_parse(const void *data, size_t len, Commit *commit_out) {
     p = strchr(p, '\n') + 1;  // skip blank line
 
     snprintf(commit_out->message, sizeof(commit_out->message), "%s", p);
-    return 0;
+    rc = 0;
+
+cleanup:
+    free(buf);
+    return rc;
 }
 
 // Serialize a Commit struct to the text format.
