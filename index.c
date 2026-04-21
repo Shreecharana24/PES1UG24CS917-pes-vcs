@@ -232,7 +232,41 @@ int index_save(const Index *index) {
             return -1;
         }
     }
+
+    if (fflush(f) != 0) {
+        free(sorted);
+        fclose(f);
+        unlink(tmp_path);
+        return -1;
+    }
+
+    if (fsync(fileno(f)) != 0) {
+        free(sorted);
+        fclose(f);
+        unlink(tmp_path);
+        return -1;
+    }
+
+    if (fclose(f) != 0) {
+        free(sorted);
+        unlink(tmp_path);
+        return -1;
+    }
+
+    if (rename(tmp_path, INDEX_FILE) != 0) {
+        free(sorted);
+        unlink(tmp_path);
     return -1;
+    }
+
+    int dfd = open(PES_DIR, O_RDONLY | O_DIRECTORY);
+    if (dfd >= 0) {
+        (void)fsync(dfd);
+        close(dfd);
+    }
+
+    free(sorted);
+    return 0;
 }
 
 // Stage a file for the next commit.
