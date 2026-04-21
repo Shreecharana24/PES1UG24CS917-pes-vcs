@@ -166,7 +166,7 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     if (rename(tmp_path, final_path) != 0) {
         unlink(tmp_path);
         free(full_obj);
-    return -1;
+        return -1;
     }
 
     int dfd = open(shard_dir, O_RDONLY | O_DIRECTORY);
@@ -248,5 +248,56 @@ int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_
         free(raw);
         return -1;
     }
-    return -1;
+
+    uint8_t *null_pos = memchr(raw, '\0', nbytes);
+    if (!null_pos) {
+        free(raw);
+        return -1;
+    }
+
+    size_t header_len = (size_t)(null_pos - raw);
+    char *header = malloc(header_len + 1);
+    if (!header) {
+        free(raw);
+        return -1;
+    }
+    memcpy(header, raw, header_len);
+    header[header_len] = '\0';
+
+    char type_str[16];
+    size_t parsed_len = 0;
+    if (sscanf(header, "%15s %zu", type_str, &parsed_len) != 2) {
+        free(header);
+        free(raw);
+        return -1;
+    }
+    free(header);
+
+    ObjectType parsed_type;
+    if (strcmp(type_str, "blob") == 0) parsed_type = OBJ_BLOB;
+    else if (strcmp(type_str, "tree") == 0) parsed_type = OBJ_TREE;
+    else if (strcmp(type_str, "commit") == 0) parsed_type = OBJ_COMMIT;
+    else {
+        free(raw);
+        return -1;
+    }
+
+    size_t payload_off = header_len + 1;
+    if (payload_off > nbytes || parsed_len != nbytes - payload_off) {
+        free(raw);
+        return -1;
+    }
+
+    void *out = malloc(parsed_len > 0 ? parsed_len : 1);
+    if (!out) {
+        free(raw);
+        return -1;
+    }
+    memcpy(out, raw + payload_off, parsed_len);
+
+    free(raw);
+    *type_out = parsed_type;
+    *data_out = out;
+    *len_out = parsed_len;
+    return 0;
 }
