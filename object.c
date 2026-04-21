@@ -151,7 +151,32 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
         free(full_obj);
         return -1;
     }
+
+    int rc = 0;
+    if (write_all(fd, full_obj, full_len) != 0) rc = -1;
+    if (rc == 0 && fsync(fd) != 0) rc = -1;
+    if (close(fd) != 0) rc = -1;
+
+    if (rc != 0) {
+        unlink(tmp_path);
+        free(full_obj);
+        return -1;
+    }
+
+    if (rename(tmp_path, final_path) != 0) {
+        unlink(tmp_path);
+        free(full_obj);
     return -1;
+    }
+
+    int dfd = open(shard_dir, O_RDONLY | O_DIRECTORY);
+    if (dfd >= 0) {
+        (void)fsync(dfd);
+        close(dfd);
+    }
+
+    free(full_obj);
+    return 0;
 }
 
 // Read an object from the store.
