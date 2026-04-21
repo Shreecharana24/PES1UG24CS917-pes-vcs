@@ -124,6 +124,33 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     char final_path[512];
     object_path(&id, final_path, sizeof(final_path));
 
+    char hex[HASH_HEX_SIZE + 1];
+    hash_to_hex(&id, hex);
+
+    char shard_dir[512];
+    int dn = snprintf(shard_dir, sizeof(shard_dir), "%s/%.2s", OBJECTS_DIR, hex);
+    if (dn < 0 || (size_t)dn >= sizeof(shard_dir)) {
+        free(full_obj);
+        return -1;
+    }
+
+    if (mkdir(shard_dir, 0755) != 0 && errno != EEXIST) {
+        free(full_obj);
+        return -1;
+    }
+
+    char tmp_path[768];
+    int tn = snprintf(tmp_path, sizeof(tmp_path), "%s/.tmp-%ld", shard_dir, (long)getpid());
+    if (tn < 0 || (size_t)tn >= sizeof(tmp_path)) {
+        free(full_obj);
+        return -1;
+    }
+
+    int fd = open(tmp_path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    if (fd < 0) {
+        free(full_obj);
+        return -1;
+    }
     return -1;
 }
 
