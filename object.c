@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <openssl/evp.h>
+#include <errno.h>
 
 // ─── PROVIDED ────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,26 @@ int object_exists(const ObjectID *id) {
 
 //
 // Returns 0 on success, -1 on error.
+const char* object_type_name(ObjectType type) {
+    switch (type) {
+        case OBJ_BLOB:   return "blob";
+        case OBJ_TREE:   return "tree";
+        case OBJ_COMMIT: return "commit";
+        default: return NULL;
+    }
+}
+int write_all(int fd, const void *buf, size_t len) {
+    const uint8_t *p = buf;
+
+    while (len > 0) {
+        ssize_t written = write(fd, p, len);
+        if (written <= 0) return -1;
+        p += written;
+        len -= written;
+    }
+
+    return 0;
+} 
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
     // TODO: Implement
     if (!data || !id_out) return -1;
