@@ -212,6 +212,45 @@ static int write_tree_level(const Index *index, const char *prefix, ObjectID *id
             return -1;
         }
 
+        char dir_name[256];
+        memcpy(dir_name, rest, dir_len);
+        dir_name[dir_len] = '\0';
+
+        if (find_tree_entry(&tree, dir_name) >= 0) {
+            continue;
+        }
+
+        char child_prefix[1024];
+        int written = snprintf(child_prefix, sizeof(child_prefix), "%s%s/", prefix, dir_name);
+        if (written < 0 || (size_t)written >= sizeof(child_prefix)) {
+            return -1;
+        }
+
+        ObjectID child_id;
+        if (write_tree_level(index, child_prefix, &child_id) != 0) {
+            return -1;
+        }
+
+        if (add_tree_entry(&tree, dir_name, MODE_DIR, &child_id) != 0) {
+            return -1;
+        }
+    }
+
+    if (tree.count == 0) {
+        return object_write(OBJ_TREE, "", 0, id_out);
+    }
+
+    void *data = NULL;
+    size_t len = 0;
+    if (tree_serialize(&tree, &data, &len) != 0) {
+        return -1;
+    }
+
+    int rc = object_write(OBJ_TREE, data, len, id_out);
+    free(data);
+    return rc;
+}
+
 // Build a tree hierarchy from the current index and write all tree
 // objects to the object store.
 //
