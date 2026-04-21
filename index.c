@@ -19,10 +19,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <errno.h>
+
+// Forward declaration (implemented in object.c)
+int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
 
 // ─── PROVIDED ────────────────────────────────────────────────────────────────
 
@@ -126,6 +131,17 @@ int index_status(const Index *index) {
 }
 
 // ─── TODO: Implement these ───────────────────────────────────────────────────
+
+static int compare_index_entries(const void *a, const void *b) {
+    const IndexEntry *ea = (const IndexEntry *)a;
+    const IndexEntry *eb = (const IndexEntry *)b;
+    return strcmp(ea->path, eb->path);
+}
+
+static uint32_t index_mode_from_stat(const struct stat *st) {
+    if (st->st_mode & S_IXUSR) return 0100755;
+    return 0100644;
+}
 
 // Load the index from .pes/index.
 //
