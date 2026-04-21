@@ -95,7 +95,35 @@ int object_exists(const ObjectID *id) {
 // Returns 0 on success, -1 on error.
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
     // TODO: Implement
-    (void)type; (void)data; (void)len; (void)id_out;
+    if (!data || !id_out) return -1;
+
+    const char *type_str = object_type_name(type);
+    if (!type_str) return -1;
+
+    char header[64];
+    int header_len = snprintf(header, sizeof(header), "%s %zu", type_str, len);
+    if (header_len < 0 || (size_t)header_len + 1 > sizeof(header)) return -1;
+
+    size_t full_len = (size_t)header_len + 1 + len;
+    uint8_t *full_obj = malloc(full_len);
+    if (!full_obj) return -1;
+
+    memcpy(full_obj, header, (size_t)header_len);
+    full_obj[header_len] = '\0';
+    memcpy(full_obj + header_len + 1, data, len);
+
+    ObjectID id;
+    compute_hash(full_obj, full_len, &id);
+    *id_out = id;
+
+    if (object_exists(&id)) {
+        free(full_obj);
+        return 0;
+    }
+
+    char final_path[512];
+    object_path(&id, final_path, sizeof(final_path));
+
     return -1;
 }
 
