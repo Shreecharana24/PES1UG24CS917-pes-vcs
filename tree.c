@@ -166,6 +166,52 @@ static int find_tree_entry(const Tree *tree, const char *name) {
     return -1;
 }
 
+static int add_tree_entry(Tree *tree, const char *name, uint32_t mode, const ObjectID *hash) {
+    if (tree->count >= MAX_TREE_ENTRIES) return -1;
+    if (strlen(name) >= sizeof(tree->entries[tree->count].name)) return -1;
+
+    TreeEntry *entry = &tree->entries[tree->count];
+    entry->mode = mode;
+    entry->hash = *hash;
+    snprintf(entry->name, sizeof(entry->name), "%s", name);
+    tree->count++;
+    return 0;
+}
+
+static int write_tree_level(const Index *index, const char *prefix, ObjectID *id_out) {
+    Tree tree;
+    tree.count = 0;
+
+    size_t prefix_len = strlen(prefix);
+
+    for (int i = 0; i < index->count; i++) {
+        const IndexEntry *idx = &index->entries[i];
+
+        if (strncmp(idx->path, prefix, prefix_len) != 0) {
+            continue;
+        }
+
+        const char *rest = idx->path + prefix_len;
+        if (*rest == '\0') {
+            continue;
+        }
+
+        const char *slash = strchr(rest, '/');
+        if (!slash) {
+            if (find_tree_entry(&tree, rest) >= 0) {
+                continue;
+            }
+            if (add_tree_entry(&tree, rest, idx->mode, &idx->hash) != 0) {
+                return -1;
+            }
+            continue;
+        }
+
+        size_t dir_len = (size_t)(slash - rest);
+        if (dir_len == 0 || dir_len >= 256) {
+            return -1;
+        }
+
 // Build a tree hierarchy from the current index and write all tree
 // objects to the object store.
 //
