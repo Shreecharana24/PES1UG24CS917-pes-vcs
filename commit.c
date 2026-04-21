@@ -33,9 +33,14 @@ int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_
 
 // Parse raw commit data into a Commit struct.
 int commit_parse(const void *data, size_t len, Commit *commit_out) {
-    (void)len;
-    const char *p = (const char *)data;
+    char *buf = malloc(len + 1);
+    if (!buf) return -1;
+    memcpy(buf, data, len);
+    buf[len] = '\0';
+
+    const char *p = buf;
     char hex[HASH_HEX_SIZE + 1];
+    int rc = -1;
 
     // "tree <hex>\n"
     if (sscanf(p, "tree %64s\n", hex) != 1) return -1;
